@@ -123,7 +123,7 @@ import com.servicekit.example.entity.ProductEntity;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface ProductRepository extends BaseRepository<ProductEntity, Long> {
+public interface ProductRepository extends BaseRepository<ProductEntity, UUID> {
     boolean existsByName(String name);
 }
 ```
@@ -157,23 +157,23 @@ public class ProductService {
     private final ProductRepository productRepository;
 
     // 1. Xóa mềm 1 entity
-    public void deleteProduct(Long id) {
+    public void deleteProduct(UUID id) {
         productRepository.deleteById(id); // is_deleted = true, updated_at = now
     }
 
     // 2. Xóa mềm danh sách entity
-    public void deleteMultiple(List<Long> ids) {
+    public void deleteMultiple(List<UUID> ids) {
         productRepository.deleteAllById(ids); 
         // Hoặc bulk update: productRepository.softDeleteAllByIds(ids);
     }
 
     // 3. Khôi phục lại bản ghi đã bị xóa mềm
-    public void restoreProduct(Long id) {
+    public void restoreProduct(UUID id) {
         productRepository.restoreById(id); // is_deleted = false
     }
 
     // 4. Tìm kiếm tự động ném 404
-    public ProductEntity getProduct(Long id) {
+    public ProductEntity getProduct(UUID id) {
         return productRepository.findByIdOrThrow(id); // Tự động ném NotFoundException nếu không có
     }
 }
@@ -215,10 +215,10 @@ Page<ProductEntity> result = productRepository.findAll(spec, pageable);
 Tránh lỗi `LazyInitializationException` hoặc bắn hàng chục câu query phụ khi load quan hệ `@OneToMany` / `@ManyToOne`:
 
 ```java
-public interface UserRepository extends BaseRepository<UserEntity, Long> {
+public interface UserRepository extends BaseRepository<UserEntity, UUID> {
 
     @EntityGraph(attributePaths = {"orders", "profile"})
-    Optional<UserEntity> findWithDetailsById(Long id);
+    Optional<UserEntity> findWithDetailsById(UUID id);
 }
 ```
 
@@ -226,9 +226,9 @@ public interface UserRepository extends BaseRepository<UserEntity, Long> {
 Khi API danh sách chỉ cần vài trường (`id`, `name`) thay vì tải cả Entity có 20-30 cột kèm quan hệ:
 
 ```java
-public record ProductSummaryDto(Long id, String name, Double price) {}
+public record ProductSummaryDto(UUID id, String name, Double price) {}
 
-public interface ProductRepository extends BaseRepository<ProductEntity, Long> {
+public interface ProductRepository extends BaseRepository<ProductEntity, UUID> {
 
     @Query("SELECT new com.servicekit.example.dto.ProductSummaryDto(p.id, p.name, p.price) FROM ProductEntity p")
     Page<ProductSummaryDto> findAllSummary(Pageable pageable);
@@ -239,11 +239,11 @@ public interface ProductRepository extends BaseRepository<ProductEntity, Long> {
 Khi cần cập nhật trạng thái hàng loạt theo điều kiện mà không cần load entity lên RAM:
 
 ```java
-public interface ProductRepository extends BaseRepository<ProductEntity, Long> {
+public interface ProductRepository extends BaseRepository<ProductEntity, UUID> {
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE #{#entityName} p SET p.price = p.price * 1.1, p.updatedAt = :now WHERE p.id IN :ids")
-    int increasePriceByIds(@Param("ids") List<Long> ids, @Param("now") Long now);
+    int increasePriceByIds(@Param("ids") List<UUID> ids, @Param("now") Long now);
 }
 ```
 
@@ -254,11 +254,11 @@ Khi sử dụng `VersionedEntity` hoặc `VersionedSoftDeletableEntity`, nếu c
 Dùng cho các nghiệp vụ thanh toán cần khóa dòng trực tiếp dưới DB (`SELECT ... FOR UPDATE`):
 
 ```java
-public interface WalletRepository extends BaseRepository<WalletEntity, Long> {
+public interface WalletRepository extends BaseRepository<WalletEntity, UUID> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT w FROM WalletEntity w WHERE w.id = :id")
-    Optional<WalletEntity> findByIdForUpdate(@Param("id") Long id);
+    Optional<WalletEntity> findByIdForUpdate(@Param("id") UUID id);
 }
 ```
 
@@ -275,7 +275,7 @@ public interface WalletRepository extends BaseRepository<WalletEntity, Long> {
 
 ```java
 @Transactional
-public void addOrderToUser(Long userId, OrderEntity newOrder) {
+public void addOrderToUser(UUID userId, OrderEntity newOrder) {
     // 1. Load user lên RAM (Managed state)
     UserEntity user = userRepository.findByIdOrThrow(userId);
     
