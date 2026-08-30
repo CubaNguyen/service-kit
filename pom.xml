@@ -17,6 +17,12 @@
         <module>service-kit-dependencies</module>
         <!-- Shared logic, utilities, and core models -->
         <module>service-kit-common</module>
+        <!-- JPA, Data access, soft delete and datasource utilities -->
+        <module>service-kit-data</module>
+        <!-- Security, Authentication, Token parsing, and User Context -->
+        <module>service-kit-security</module>
+        <!-- Multi-Tenancy support (Hibernate 6 @TenantId, Tenant Context & Resolvers) -->
+        <module>service-kit-multitenant</module>
     </modules>
 
     <!-- Global Properties & Compilation Settings -->

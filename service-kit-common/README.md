@@ -120,8 +120,11 @@ public PageResponse<UserDto> getUsers(@RequestParam int page, @RequestParam int 
 
 Dữ liệu trả về sẽ được tự động bọc bởi `ApiResponse` (nằm trong block `data`), cung cấp đầy đủ thông tin phân trang cho client.
 
+**Xử lý an toàn kiểu trả về `String`:**
+Nếu một Controller trả về trực tiếp kiểu `String`, `GlobalResponseBodyAdvice` sẽ tự động serialize nó thành dạng JSON chuẩn (có `code`, `message`, `data`) thông qua `ObjectMapper` thay vì bọc thô. Việc này được thiết kế kỹ lưỡng nhằm tránh lỗi `ClassCastException` do `StringHttpMessageConverter` mặc định của Spring gây ra.
+
 **Bypass (Bỏ qua) tự động bọc Response:**
-Nếu bạn đang viết API cho đối tác thứ 3, hoặc export file, webhook... bạn có thể dùng `@IgnoreResponseAdvice` để trả về đúng nguyên bản dữ liệu.
+Nếu bạn đang viết API cho đối tác thứ 3, hoặc export file, webhook... bạn có thể dùng `@IgnoreResponseAdvice` để trả về đúng nguyên bản dữ liệu (đây là cách đúng đắn nếu bạn thực sự muốn trả về file/String thô).
 
 ```java
 @GetMapping("/export")
@@ -208,6 +211,7 @@ Lỗi hệ thống bất ngờ (Exception chưa handle) sẽ tự động log `E
 - Nó kiểm tra header `X-Correlation-Id`. Nếu gọi chéo service (microservice này gọi microservice kia) đã có sẵn header, nó sẽ dùng lại.
 - Nếu request gọi từ bên ngoài vào chưa có, nó sẽ tạo một `UUID` mới.
 - TraceId này sẽ được đưa vào header của response trả về client, và được nạp vào `MDC` với key là `traceId`.
+- **Dọn dẹp an toàn**: Filter sử dụng khối `try-finally` để gọi `MDC.remove("traceId")` khi kết thúc luồng. Việc này đảm bảo ngăn chặn triệt để tình trạng rò rỉ (leak) TraceID sang các request khác dùng chung Thread trong Thread Pool của Tomcat.
 
 #### Cấu hình Logback (`logback-spring.xml`)
 Để log của bạn hiển thị `traceId`, hãy thêm `%X{traceId}` vào log pattern. Cấu hình tại `src/main/resources/logback-spring.xml`:
@@ -256,11 +260,12 @@ public class UserEntity implements IAuditable {
 **Sử dụng `TimeUtils`:**
 ```java
 long now = TimeUtils.nowEpochMilli(); // 1724916781123
-String iso8601 = TimeUtils.toUtcString(now); // 2026-08-29T07:33:01.123Z
+String iso8601 = TimeUtils.toUtcString(now); // 2024-08-29T07:33:01.123Z
 ```
 
 **Sử dụng `UtcTimestamp` làm DTO:**
-Sử dụng `UtcTimestamp` trong Request/Response DTO. Khi gọi API, client truyền số 13 chữ số, Jackson sẽ tự động map, và khi log nó sẽ hiển thị rất thân thiện:
+Sử dụng `UtcTimestamp` trong Request/Response DTO. Khi gọi API, client truyền số 13 chữ số, Jackson sẽ tự động map, và khi log nó sẽ hiển thị rất thân thiện.
+> Vì hệ thống sử dụng `Jackson2ObjectMapperBuilderCustomizer`, các cấu hình Jackson (và module như `JavaTimeModule`) sẽ được tự động áp dụng nhất quán cho *toàn bộ* các `ObjectMapper` do Spring Boot khởi tạo. Nhờ đó, việc map `UtcTimestamp` hay các kiểu thời gian khác hoạt động trơn tru mọi nơi (kể cả trong Kafka, RestTemplate...).
 
 ```java
 public class UserDto {
@@ -270,7 +275,7 @@ public class UserDto {
 
 // Khi in log:
 log.info("Created at: {}", dto.getCreatedAt()); 
-// Result: Created at: 2026-08-29 14:35:51 UTC (1724916781123)
+// Result: Created at: 2024-08-29 14:35:51 UTC (1724916781123)
 ```
 
 **Sử dụng `JsonUtils`:**

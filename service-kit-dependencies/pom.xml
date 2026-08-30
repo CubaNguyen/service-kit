@@ -35,6 +35,21 @@
                 <artifactId>service-kit-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.servicekit</groupId>
+                <artifactId>service-kit-data</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.servicekit</groupId>
+                <artifactId>service-kit-security</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.servicekit</groupId>
+                <artifactId>service-kit-multitenant</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 </project>

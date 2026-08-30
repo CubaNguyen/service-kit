@@ -11,7 +11,7 @@
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>service-kit-common</artifactId>
+    <artifactId>service-kit-multitenant</artifactId>
     <packaging>jar</packaging>
 
     <dependencyManagement>
@@ -27,41 +27,29 @@
     </dependencyManagement>
 
     <dependencies>
-        <!-- Jakarta Servlet API cho Filter (Provided/Optional) -->
+        <!-- Common Module -->
+        <dependency>
+            <groupId>com.servicekit</groupId>
+            <artifactId>service-kit-common</artifactId>
+        </dependency>
+
+        <!-- Data Module (BaseEntity, SoftDeletableEntity) -->
+        <dependency>
+            <groupId>com.servicekit</groupId>
+            <artifactId>service-kit-data</artifactId>
+        </dependency>
+
+        <!-- Spring Data JPA & Hibernate 6 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Web (Optional cho Servlet Filter) -->
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <!-- Spring Web cho Advice/Controller (Optional để không ép buộc worker service) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <!-- Spring Validation cho @ValidEnum / Custom validators (Optional) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <!-- Jackson cho JSON handling -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
-        </dependency>
-
-        <!-- Logging SLF4J / MDC -->
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
         </dependency>
 
         <!-- Lombok -->
