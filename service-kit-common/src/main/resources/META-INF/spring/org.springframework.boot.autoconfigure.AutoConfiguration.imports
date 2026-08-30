@@ -1,0 +1,4 @@
+com.servicekit.common.config.ObjectMapperAutoConfiguration
+com.servicekit.common.exception.GlobalExceptionHandler
+com.servicekit.common.filter.TraceIdFilter
+com.servicekit.common.response.GlobalResponseBodyAdvice

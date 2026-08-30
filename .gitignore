@@ -1,0 +1,41 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### Compiled class file ###
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+### Spring Boot / Maven specific ###
+dependency-reduced-pom.xml
+.flattened-pom.xml
+
+### Environments & Secrets ###
+.env
+.env.local
+.env.*.local
+
+### IDEs ###
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+.factorypath
+.springBeans
+
+### OS & Logs ###
+.DS_Store
+Thumbs.db
+*.log
+*~
+*.swp
