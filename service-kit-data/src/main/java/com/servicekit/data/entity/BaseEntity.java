@@ -22,17 +22,17 @@ import java.util.UUID;
 public abstract class BaseEntity implements IAuditable, Serializable {
 
     /**
-     * UUID v4 (Random) được sinh tự động bởi Hibernate UuidGenerator.
-     * Lý do chọn UUID thay vì AUTO_INCREMENT:
-     * - An toàn trong môi trường phân tán (nhiều service, nhiều DB, Event Sourcing)
-     * - Không lộ số thứ tự bản ghi qua API (bảo mật)
-     * - Không bị collision khi merge/sync dữ liệu giữa các DB
-     * - Tương thích với pattern Outbox, Saga, CQRS
-     * Trade-off: Index lớn hơn, cần cân nhắc dùng UUID v7 (ULID) để tăng hiệu năng B-tree index khi scale lớn.
+     * UUID v7 (Time-based) được sinh tự động bởi Hibernate UuidGenerator.
+     * Lý do chọn UUID v7 thay vì AUTO_INCREMENT hay UUID v4:
+     * - Vẫn an toàn trong môi trường phân tán (nhiều service, nhiều DB).
+     * - Vẫn bảo mật, không lộ số thứ tự.
+     * - ĐẶC BIỆT: Time-sorted (có chứa timestamp ở các bit đầu) giúp B-tree index
+     *   hoạt động cực kỳ hiệu quả (tuần tự như Long), loại bỏ hoàn toàn nhược điểm
+     *   phân mảnh index của UUID v4 truyền thống trên các bảng lớn.
      */
     @Id
     @GeneratedValue
-    @UuidGenerator
+    @UuidGenerator(style = UuidGenerator.Style.TIME)
     @Column(name = "id", updatable = false, nullable = false, columnDefinition = "uuid")
     private UUID id;
 
