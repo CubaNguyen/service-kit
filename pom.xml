@@ -23,6 +23,8 @@
         <module>service-kit-security</module>
         <!-- Multi-Tenancy support (Hibernate 6 @TenantId, Tenant Context & Resolvers) -->
         <module>service-kit-multitenant</module>
+        <!-- Web HTTP layer: WebExceptionHandler (OptimisticLock → 409), future IdempotencyFilter -->
+        <module>service-kit-web</module>
     </modules>
 
     <!-- Global Properties & Compilation Settings -->
