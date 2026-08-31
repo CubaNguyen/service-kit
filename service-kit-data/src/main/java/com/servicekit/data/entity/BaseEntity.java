@@ -53,4 +53,17 @@ public abstract class BaseEntity implements IAuditable, Serializable {
     protected void onUpdate() {
         this.updatedAt = TimeUtils.nowEpochMilli();
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != org.hibernate.Hibernate.getClass(o)) return false;
+        BaseEntity that = (BaseEntity) o;
+        return id != null && java.util.Objects.equals(id, that.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

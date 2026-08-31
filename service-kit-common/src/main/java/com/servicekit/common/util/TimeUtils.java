@@ -12,11 +12,20 @@ public final class TimeUtils {
 
     private TimeUtils() {}
 
+    private static java.time.Clock clock = java.time.Clock.systemUTC();
+
+    /**
+     * Cho phép ghi đè Clock trong Unit Test (mock time).
+     */
+    public static void setClock(java.time.Clock newClock) {
+        clock = newClock;
+    }
+
     /**
      * Lấy thời gian hiện tại dưới dạng Epoch Milliseconds 13 chữ số (UTC)
      */
     public static long nowEpochMilli() {
-        return Instant.now().toEpochMilli();
+        return Instant.now(clock).toEpochMilli();
     }
 
     /**

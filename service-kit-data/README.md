@@ -4,7 +4,43 @@
 
 ---
 
-## 🎯 Tổng Quan Mục Đích
+## 📑 Mục Lục (Table of Contents)
+
+- [📌 1. Tổng Quan & Cài Đặt](#-1-tổng-quan--cài-đặt)
+  - [Mục Đích Thư Viện](#mục-đích-thư-viện)
+  - [Cài Đặt (Installation)](#cài-đặt-installation)
+  - [Bảng Tra Cứu Nhanh (Quick Reference)](#bảng-tra-cứu-nhanh-quick-reference)
+- [🏛️ 2. Mô Hình Phân Cấp Entity (Entity Hierarchy)](#️-2-mô-hình-phân-cấp-entity-entity-hierarchy)
+- [📖 3. Hướng Dẫn Sử Dụng Cơ Bản (Quick Start)](#-3-hướng-dẫn-sử-dụng-cơ-bản-quick-start)
+  - [3.1 Khai Báo Entity](#31-khai-báo-entity)
+  - [3.2 Khai Báo Repository](#32-khai-báo-repository)
+  - [3.3 Thực Hiện Xóa Mềm & Khôi Phục Dữ Liệu](#33-thực-hiện-xóa-mềm--khôi-phục-dữ-liệu)
+- [🎯 4. 7 Query & Concurrency Patterns Thực Chiến](#-4-7-query--concurrency-patterns-thực-chiến)
+  - [Pattern 1: Dynamic Filter/Search với Specification](#pattern-1-dynamic-filtersearch-với-specification-generic)
+  - [Pattern 2: Tìm theo danh sách ID & findByIdOrThrow](#pattern-2-tìm-theo-danh-sách-id-findallbyid--tiện-ích-findbyidorthrow)
+  - [Pattern 3: Chống N+1 Query với @EntityGraph](#pattern-3-chống-n1-query-với-entitygraph)
+  - [Pattern 4: DTO Projection (selectMany)](#pattern-4-dto-projection-tối-ưu-hiệu-năng-truy-vấn-danh-sách)
+  - [Pattern 5: Bulk Update theo điều kiện](#pattern-5-bulk-update-theo-điều-kiện)
+  - [Pattern 6: Khóa lạc quan (Optimistic Locking)](#pattern-6-khóa-lạc-quan-optimistic-locking-với-version)
+  - [Pattern 7: Khóa bi quan (Pessimistic Locking)](#pattern-7-khóa-bi-quan-pessimistic-locking-cho-nghiệp-vụ-thanh-toán)
+- [⚠️ 5. Lưu Ý Thực Tế & Góc Khuất (Edge Cases & Gotchas)](#️-5-lưu-ý-thực-tế--góc-khuất-edge-cases--gotchas)
+- [⚙️ 6. Tính Năng Nâng Cao & Tùy Chọn (Advanced Topics)](#️-6-tính-năng-nâng-cao--tùy-chọn-advanced-topics)
+  - [6.1 Query Kernel Architecture (BaseRepositoryImpl)](#61-query-kernel-architecture-baserepositoryimpl)
+  - [6.2 Dirty Checking: Update Quan Hệ Trong JPA](#62-dirty-checking-update-quan-hệ-trong-jpa)
+  - [6.3 Chuyển Đổi Phân Trang (PageResponseMapper)](#63-chuyển-đổi-phân-trang-pageresponsemapper)
+  - [6.4 Cấu Hình Connection Pool HikariCP](#64-cấu-hình-connection-pool-hikaricp-chuẩn-production)
+  - [6.5 Viết Integration Test Nhanh (@DataJpaTest)](#65-viết-integration-test-nhanh-datajpatest)
+  - [6.6 Integration Test Với Database Thật (Testcontainers)](#66-integration-test-với-database-thật-testcontainers)
+  - [6.7 Database Migration (Flyway)](#67-tích-hợp-database-migration-với-flyway-optional)
+  - [6.8 Audit Trail — Lịch Sử Thay Đổi (Hibernate Envers)](#68-audit-trail--lịch-sử-thay-đổi-hibernate-envers)
+  - [6.9 Mã Hóa Cột DB (Field-Level Encryption)](#69-mã-hóa-cột-db-field-level-encryption)
+  - [6.10 Observability & Monitoring](#610-observability--debug--monitoring)
+
+---
+
+## 📌 1. Tổng Quan & Cài Đặt
+
+### Mục Đích Thư Viện
 
 Thư viện giải quyết các bài toán nền tảng về cơ sở dữ liệu:
 - **Chuẩn hóa Entity & Auditing**: Tự động sinh khóa chính `id`, tự động gán `createdAt` và `updatedAt` chuẩn UTC 13 chữ số (Epoch Milliseconds), chống ghi đè `null` vào `created_at` khi update.
@@ -15,12 +51,12 @@ Thư viện giải quyết các bài toán nền tảng về cơ sở dữ liệ
   - Ghi đè toàn bộ hành vi `delete*()` để tự động chuyển thành xóa mềm.
   - Cung cấp `restoreById()` và `softDeleteAllByIds()` kèm cơ chế đồng bộ First-Level Cache (`flush` + `clear`).
   - Tiện ích `findByIdOrThrow()` giúp viết code Service ngắn gọn, tự ném `NotFoundException` chuẩn hóa.
+  - Hỗ trợ tránh N+1 query qua `@EntityGraph` động (`findAllWithGraph`).
+  - Hỗ trợ Spring Data projection tự động (`selectMany`) mà không cần viết câu lệnh Criteria hay DTO mapping thủ công.
 - **Tối ưu hóa HikariCP Connection Pool**: Cung cấp bộ cấu hình mặc định chuẩn Production, tự động kích hoạt cảnh báo rò rỉ kết nối (`leakDetectionThreshold`) để phát hiện sớm các transaction bị treo.
 - **Cầu nối Phân trang**: Tiện ích `PageResponseMapper` chuyển đổi 1 dòng code từ `Page<T>` của JPA sang `PageResponse<T>` của `service-kit-common`.
 
----
-
-## 📦 Cài Đặt (Installation)
+### Cài Đặt (Installation)
 
 Thêm dependency sau vào file `pom.xml` của service:
 
@@ -32,28 +68,29 @@ Thêm dependency sau vào file `pom.xml` của service:
 </dependency>
 ```
 
-> **Lưu ý**: Module đã tích hợp sẵn cơ chế Auto-Configuration của Spring Boot (`META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`), tự động cấu hình DataSource và HikariCP khi ứng dụng khởi động.
+> [!NOTE]
+> Module `service-kit-data` tự động kéo theo **`service-kit-common`** dưới dạng Transitive Dependency. Bạn có thể sử dụng trực tiếp các class dùng chung như `PageResponse<T>`, `NotFoundException`, và `TimeUtils` mà không cần khai báo thêm dependency `service-kit-common` thủ công trong `pom.xml`.
+>
+> Ngoài ra, module đã tích hợp sẵn Spring Boot Auto-Configuration (`META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`), tự động cấu hình DataSource và HikariCP khi ứng dụng khởi động.
 
----
-
-## 🚀 Bảng Tra Cứu Nhanh
+### Bảng Tra Cứu Nhanh (Quick Reference)
 
 | Thành phần | Class / Annotation | Mục đích |
 |---|---|---|
-| **Base Entity** | `BaseEntity` | MappedSuperclass siêu nhẹ chứa `id` (UUID v4), `createdAt`, `updatedAt` và Lifecycle callback. |
+| **Base Entity** | `BaseEntity` | MappedSuperclass siêu nhẹ chứa `id` (UUID v7), `createdAt`, `updatedAt` và Lifecycle callback. Tự động set thời gian qua `TimeUtils.nowEpochMilli()`. |
 | **Soft Delete Entity** | `SoftDeletableEntity` | Kế thừa `BaseEntity`, thêm `is_deleted` và `@SQLRestriction("is_deleted = false")`. |
 | **Auditable Entity** | `AuditableEntity` | Kế thừa `SoftDeletableEntity`, thêm `createdBy`/`updatedBy` qua Spring Data JPA Auditing. |
 | **Versioned Entity** | `VersionedEntity` | Kế thừa `BaseEntity`, thêm `@Version` (dành cho bảng cần khóa lạc quan nhưng xóa cứng). |
 | **Core Domain Entity** | `VersionedSoftDeletableEntity` | Kế thừa `SoftDeletableEntity` + `@Version` + `createdBy`/`updatedBy` (chuẩn cho User, Order, Product...). |
-| **Base Repository** | `BaseRepository<T, ID>` | Mở rộng `JpaRepository` + `JpaSpecificationExecutor`, thêm `restoreById()`, `softDeleteAllByIds()`, `findByIdOrThrow()`. |
-| **Base Repo Impl** | `BaseRepositoryImpl<T, ID>` | Implement xóa mềm toàn diện cho các hàm delete và xử lý native SQL cho restore. |
+| **Base Repository** | `BaseRepository<T, ID>` | Mở rộng `JpaRepository` + `JpaSpecificationExecutor`, thêm `restoreById()`, `softDeleteAllByIds()`, `findByIdOrThrow()`, `findAllWithGraph()`, `selectMany()`. |
+| **Base Repo Impl** | `BaseRepositoryImpl<T, ID>` | Implement xóa mềm toàn diện cho các hàm delete, xử lý native SQL cho restore, và cung cấp giải pháp dynamic EntityGraph & dynamic projection. |
 | **Cấu hình Hikari** | `HikariDefaultsProperties` | Configuration properties (`service-kit.datasource.hikari.*`) chứa các thông số pool chuẩn. |
 | **Auto Configuration** | `DataSourceAutoConfiguration` | Tự động apply cấu hình kiểm soát rò rỉ connection vào `HikariDataSource`. |
 | **Phân trang Adapter** | `PageResponseMapper` | Tiện ích map `org.springframework.data.domain.Page<T>` sang `common.PageResponse<T>`. |
 
 ---
 
-## 🏛️ Mô Hình Phân Cấp Entity (Entity Hierarchy)
+## 🏛️ 2. Mô Hình Phân Cấp Entity (Entity Hierarchy)
 
 Tùy vào tính chất của bảng dữ liệu trong thực tế, hãy chọn đúng lớp Entity để kế thừa:
 
@@ -79,9 +116,9 @@ Tùy vào tính chất của bảng dữ liệu trong thực tế, hãy chọn �
 
 ---
 
-## 📖 Hướng Dẫn Sử Dụng Chi Tiết (How-to-use)
+## 📖 3. Hướng Dẫn Sử Dụng Cơ Bản (Quick Start)
 
-### 1. Khai Báo Entity
+### 3.1 Khai Báo Entity
 
 #### Ví dụ 1: Bảng Log / Giao dịch (Kế thừa `BaseEntity` - Siêu nhẹ)
 ```java
@@ -111,7 +148,7 @@ public class ProductEntity extends VersionedSoftDeletableEntity {
 
 ---
 
-### 2. Khai Báo Repository
+### 3.2 Khai Báo Repository
 
 Tất cả Repository của bạn nên kế thừa `BaseRepository<T, ID>`:
 
@@ -121,6 +158,8 @@ package com.servicekit.example.repository;
 import com.servicekit.data.repository.BaseRepository;
 import com.servicekit.example.entity.ProductEntity;
 import org.springframework.stereotype.Repository;
+
+import java.util.UUID;
 
 @Repository
 public interface ProductRepository extends BaseRepository<ProductEntity, UUID> {
@@ -147,7 +186,7 @@ public class Application {
 
 ---
 
-### 3. Thực Hiện Xóa Mềm & Khôi Phục Dữ Liệu
+### 3.3 Thực Hiện Xóa Mềm & Khôi Phục Dữ Liệu
 
 ```java
 @Service
@@ -164,7 +203,7 @@ public class ProductService {
     // 2. Xóa mềm danh sách entity
     public void deleteMultiple(List<UUID> ids) {
         productRepository.deleteAllById(ids); 
-        // Hoặc bulk update: productRepository.softDeleteAllByIds(ids);
+        // Hoặc bulk update hiệu năng cao: productRepository.softDeleteAllByIds(ids);
     }
 
     // 3. Khôi phục lại bản ghi đã bị xóa mềm
@@ -172,18 +211,18 @@ public class ProductService {
         productRepository.restoreById(id); // is_deleted = false
     }
 
-    // 4. Tìm kiếm tự động ném 404
+    // 4. Tìm kiếm tự động ném NotFoundException (404)
     public ProductEntity getProduct(UUID id) {
-        return productRepository.findByIdOrThrow(id); // Tự động ném NotFoundException nếu không có
+        return productRepository.findByIdOrThrow(id);
     }
 }
 ```
 
 ---
 
-## 🎯 7 Query & Concurrency Patterns Thực Chiến trong Microservices
+## 🎯 4. 7 Query & Concurrency Patterns Thực Chiến
 
-### Pattern 1: Dynamic Filter/Search với `Specification` (Generic)
+### Pattern 1: Dynamic Filter/Search với Specification (Generic)
 `BaseRepository` đã tích hợp sẵn `JpaSpecificationExecutor<T>`, cho phép tìm kiếm linh hoạt nhiều điều kiện tùy chọn:
 
 ```java
@@ -212,8 +251,9 @@ Page<ProductEntity> result = productRepository.findAll(spec, pageable);
 - Dùng `findByIdOrThrow(id)` được cung cấp sẵn bởi `BaseRepository` để code tầng Service không phải lặp lại đoạn `.orElseThrow(() -> new NotFoundException(...))`.
 
 ### Pattern 3: Chống N+1 Query với `@EntityGraph`
-Tránh lỗi `LazyInitializationException` hoặc bắn hàng chục câu query phụ khi load quan hệ `@OneToMany` / `@ManyToOne`:
+Tránh lỗi `LazyInitializationException` hoặc bắn hàng chục câu query phụ khi load quan hệ `@OneToMany` / `@ManyToOne`. Có 2 cách thực hiện:
 
+#### Cách 1: Dùng `@EntityGraph` tĩnh trên Repository (Khi biết trước quan hệ cần load)
 ```java
 public interface UserRepository extends BaseRepository<UserEntity, UUID> {
 
@@ -222,9 +262,32 @@ public interface UserRepository extends BaseRepository<UserEntity, UUID> {
 }
 ```
 
-### Pattern 4: DTO Projection (Tối ưu hiệu năng truy vấn danh sách)
-Khi API danh sách chỉ cần vài trường (`id`, `name`) thay vì tải cả Entity có 20-30 cột kèm quan hệ:
+#### Cách 2: Dùng `findAllWithGraph` động từ `BaseRepository` (Khi cần load quan hệ linh hoạt kèm `Specification`)
+```java
+Specification<ProductEntity> spec = ProductSpecs.hasName("MacBook");
 
+// Không cần Sort — mặc định Sort.unsorted()
+List<ProductEntity> products = productRepository.findAllWithGraph(spec, "categories", "supplier");
+
+// Hoặc truyền Sort tùy chọn
+List<ProductEntity> sorted = productRepository.findAllWithGraph(
+        spec,
+        Sort.by(Sort.Direction.DESC, "createdAt"),
+        "categories", "supplier"
+);
+```
+
+> [!NOTE]
+> `findAllWithGraph` tự động áp `distinct(true)` để tránh duplicate root entity khi SQL JOIN với collection.
+> **Nguyên nhân duplicate là do SQL JOIN**, không phải EntityGraph tự sinh ra.
+> Nếu chỉ fetch quan hệ `@ManyToOne` (không phải collection), bạn không cần lo về duplicate.
+
+---
+
+### Pattern 4: DTO Projection (Tối ưu hiệu năng truy vấn danh sách)
+Khi API danh sách chỉ cần vài trường (`id`, `name`) thay vì tải cả Entity có hàng chục cột kèm quan hệ. Có 2 cách thực hiện:
+
+#### Cách 1: Constructor DTO Projection qua JPQL `@Query`
 ```java
 public record ProductSummaryDto(UUID id, String name, Double price) {}
 
@@ -233,6 +296,33 @@ public interface ProductRepository extends BaseRepository<ProductEntity, UUID> {
     @Query("SELECT new com.servicekit.example.dto.ProductSummaryDto(p.id, p.name, p.price) FROM ProductEntity p")
     Page<ProductSummaryDto> findAllSummary(Pageable pageable);
 }
+```
+
+#### Cách 2: Dùng `selectMany` động của `BaseRepository` (Không cần viết câu lệnh SQL/JPQL)
+Spring Data JPA hỗ trợ cả **Interface-based Projections** và **Class-based Projections (DTOs)**.
+
+**Bước 1: Khai báo Interface Projection hoặc Record DTO**
+```java
+// Dạng Interface
+public interface ProductInfoProjection {
+    UUID getId();
+    String getName();
+    Double getPrice();
+}
+
+// Hoặc dạng Record DTO (Spring Data tự động map theo tên constructor/properties)
+public record ProductSummaryDto(UUID id, String name, Double price) {}
+```
+
+**Bước 2: Gọi `selectMany` truyền vào Class target**
+```java
+Specification<ProductEntity> spec = ProductSpecs.minPrice(1000.0);
+
+// 1. Lấy danh sách dạng Interface Projection
+List<ProductInfoProjection> summaries = productRepository.selectMany(spec, ProductInfoProjection.class);
+
+// 2. Lấy danh sách dạng Record DTO
+List<ProductSummaryDto> dtos = productRepository.selectMany(spec, ProductSummaryDto.class);
 ```
 
 ### Pattern 5: Bulk Update theo điều kiện
@@ -264,7 +354,51 @@ public interface WalletRepository extends BaseRepository<WalletEntity, UUID> {
 
 ---
 
-## 💡 Thay Đổi Tư Duy: Update Quan Hệ Trong JPA (Dirty Checking)
+## ⚠️ 5. Lưu Ý Thực Tế & Góc Khuất (Edge Cases & Gotchas)
+
+Dưới đây là các góc khuất thực tế quan trọng khi áp dụng JPA, Soft Delete và Concurrent Updates:
+
+| # | Vấn đề / Bẫy thực tế | Tác động | Giải pháp chuẩn |
+|---|---|---|---|
+| **1** | **Soft Delete Cascade Không Tự Động (Thiết Kế Cố Ý)** | `@OneToMany` + Soft Delete KHÔNG tự cascade ngầm. Nếu gọi `orderRepository.deleteById(orderId)`, `Order` bị `is_deleted = true` nhưng các `OrderItem` con **không bị xóa theo**. | **Thiết kế chuẩn Microservices (Explicit Cascade):** Xử lý cascade thủ công tại Service bằng Bulk Update:<br>`orderRepository.deleteById(orderId);`<br>`orderItemRepository.softDeleteAllByOrderId(orderId);`<br>*Lý do:* Tránh bẫy N+1 UPDATE Query ngầm của Hibernate và đảm bảo kiểm soát luồng dữ liệu minh bạch, tránh vô tình xóa lan dây chuyền. |
+| **2** | **`@SQLRestriction` Bị Bypass Bởi Native Query** | `@SQLRestriction("is_deleted = false")` KHÔNG có hiệu lực với Native Query, `JdbcTemplate` hoặc Flyway. Native Query sẽ trả về cả record đã xóa mềm. | Dev viết Native Query phải **tự thêm điều kiện** `WHERE is_deleted = false` thủ công vào câu lệnh SQL. |
+| **3** | **Unique Constraint + Soft Delete** | Cột có Unique Index (ví dụ `email`), khi xóa mềm bản ghi cũ, người dùng mới đăng ký lại cùng email đó sẽ bị ném lỗi `Duplicate entry`. | **PostgreSQL:** Tạo Partial Unique Index:<br>`CREATE UNIQUE INDEX idx_users_email_active ON users(email) WHERE is_deleted = false;`<br>**Khác:** Tạo Composite Index `(email, deleted_at)` (với `deleted_at` mặc định = 0). |
+| **4** | **Lazy Loading Quan Hệ Soft Deleted** | Entity A `@ManyToOne` B (B đã bị xóa mềm). Khi gọi `a.getB().getName()`, Hibernate sẽ ném `EntityNotFoundException`. | Gắn annotation `@NotFound(action = NotFoundAction.IGNORE)` của Hibernate lên trường `@ManyToOne` để trả về `null` thay vì throw exception. |
+| **5** | **`orphanRemoval = true` Rò Rỉ Soft Delete** | Gọi `collection.remove()` khi dùng `@OneToMany(orphanRemoval = true)` sẽ bắn câu lệnh `DELETE` SQL vật lý, bỏ qua logic xóa mềm. | **KHÔNG DÙNG** `orphanRemoval = true` cho thực thể có xóa mềm. Thao tác xóa con thủ công qua Repository (`deleteById`). |
+| **6** | **Bulk Update Bypass `@Version` & Envers** | `softDeleteAllByIds()` dùng JPQL Bulk Update sẽ **KHÔNG** tăng version `@Version` và **KHÔNG** ghi nhận lịch sử vào Hibernate Envers. | Dùng `deleteAllById()` (lặp save từng entity) nếu cần Audit đầy đủ. Chỉ dùng `softDeleteAllByIds()` khi ưu tiên tốc độ số lượng lớn. |
+| **7** | **`GenerationType.IDENTITY` Disable Batch Insert** | Dùng ID tự tăng `IDENTITY` làm JDBC driver buộc phải insert từng dòng để lấy ID, làm mất tác dụng của JDBC Batch Insert. | Đã được giải quyết sẵn: `service-kit-data` mặc định sử dụng **UUID v7** (sequential timestamp-based UUID), tương thích hoàn hảo với JDBC Batching. |
+| **8** | **Mocking Time Trong Unit Test** | Hàm Lifecycle callback `onCreate`/`onUpdate` lấy thời gian thực từ hệ thống (`TimeUtils`), gây khó khăn khi viết test phụ thuộc thời gian. | Sử dụng `TimeUtils.setClock(clock)` trong `@BeforeEach` của Unit Test để cố định thời gian giả lập. |
+
+---
+
+## ⚙️ 6. Tính Năng Nâng Cao & Tùy Chọn (Advanced Topics)
+
+### 6.1 Query Kernel Architecture (`BaseRepositoryImpl`)
+
+`BaseRepositoryImpl` được thiết kế theo nguyên tắc **một điểm dựng query duy nhất** — tương tự vai trò của `IQueryable<T>` trong Entity Framework:
+
+```
+           buildQuery(spec, sort, entityGraph?)   ← Kernel duy nhất
+                    │
+        ┌───────────┼───────────┐
+        ↓           ↓           ↓
+ findAllWithGraph  findAll    [Pagination - TODO]
+   (+ graph hint)  (via JPA)
+```
+
+| Protected Method | Vai trò |
+|---|---|
+| `buildQuery(spec, sort, graph)` | Kernel: dựng `TypedQuery<T>`, áp Spec + Sort + EntityGraph hint. Mọi read method đều gọi xuống đây. |
+| `buildQuery(spec, sort)` | Overload không cần EntityGraph — cho các query không eager load. |
+| `withDistinct(spec)` | Helper: bọc Spec để inject `distinct(true)` vào CriteriaQuery. Dùng khi SQL sẽ JOIN collection để tránh duplicate root entity. **Lưu ý**: duplicate là do SQL JOIN, không phải do EntityGraph tự sinh ra. |
+| `buildEntityGraph(paths...)` | Helper: dựng `EntityGraph<T>` động từ danh sách attribute path. Trả về `null` nếu không có path → kernel tự bỏ qua hint. |
+
+> [!TIP]
+> Khi implement **Pagination** (TODO) và **AdvancedFilter** (TODO) về sau, cả hai đều sẽ gọi `buildQuery()` và `getCountQuery()` làm nền tảng — không tự dựng query riêng.
+
+---
+
+### 6.2 Dirty Checking: Update Quan Hệ Trong JPA
 
 > ⚠️ **Lưu ý quan trọng cho dev chuyển từ MyBatis / Raw SQL sang JPA:**
 > Trong JPA **không tồn tại pattern "UPDATE JOIN"** như câu lệnh SQL thuần.
@@ -289,7 +423,36 @@ public void addOrderToUser(UUID userId, OrderEntity newOrder) {
 
 ---
 
-## ⚙️ Cấu Hình Connection Pool HikariCP Chuẩn Production
+### 6.3 Chuyển Đổi Phân Trang (`PageResponseMapper`)
+
+Kết hợp phân trang của Spring Data JPA với `PageResponse` của module `service-kit-common`:
+
+```java
+@RestController
+@RequestMapping("/api/products")
+@RequiredArgsConstructor
+public class ProductController {
+
+    private final ProductRepository productRepository;
+
+    @GetMapping
+    public PageResponse<ProductDto> getProducts(Pageable pageable) {
+        Page<ProductEntity> page = productRepository.findAll(pageable);
+        
+        // Map 1 dòng từ Page<ProductEntity> sang PageResponse<ProductDto> của service-kit-common
+        return PageResponseMapper.from(page, p -> ProductDto.builder()
+                .id(p.getId())
+                .name(p.getName())
+                .price(p.getPrice())
+                .createdAt(p.getCreatedAt())
+                .build());
+    }
+}
+```
+
+---
+
+### 6.4 Cấu Hình Connection Pool HikariCP Chuẩn Production
 
 Module cung cấp sẵn các giá trị mặc định tối ưu qua prefix `service-kit.datasource.hikari`.
 
@@ -310,46 +473,7 @@ service-kit:
 
 ---
 
-## 🔄 Chuyển Đổi Phân Trang (`PageResponseMapper`)
-
-Kết hợp phân trang của Spring Data JPA với `PageResponse` của module `service-kit-common`:
-
-```java
-@RestController
-@RequestMapping("/api/products")
-@RequiredArgsConstructor
-public class ProductController {
-
-    private final ProductRepository productRepository;
-
-    @GetMapping
-    public PageResponse<ProductDto> getProducts(Pageable pageable) {
-        Page<ProductEntity> page = productRepository.findAll(pageable);
-        
-        // Map 1 dòng từ Page<ProductEntity> sang PageResponse<ProductDto>
-        return PageResponseMapper.from(page, p -> ProductDto.builder()
-                .id(p.getId())
-                .name(p.getName())
-                .price(p.getPrice())
-                .createdAt(p.getCreatedAt())
-                .build());
-    }
-}
-```
-
----
-
-## ⚠️ Các Lưu Ý & Góc Khuất Thực Tế (Edge Cases)
-
-| Vấn đề | Tác động | Giải pháp xử lý |
-|---|---|---|
-| **Unique Constraint + Soft Delete** | Nếu có cột Unique (ví dụ `email`), khi xóa mềm một bản ghi, người dùng mới đăng ký lại cùng email đó sẽ bị lỗi `Duplicate entry`. | Sử dụng **Partial Unique Index** (trên Postgres: `CREATE UNIQUE INDEX ... WHERE is_deleted = false`) hoặc cặp Unique Key `(email, is_deleted)` / `(email, deleted_at)`. |
-| **Lazy Loading quan hệ Soft Deleted** | Nếu Entity A liên kết với Entity B (B đã bị xóa mềm), khi gọi `a.getB().getName()` Hibernate sẽ văng `EntityNotFoundException`. | Gắn annotation `@NotFound(action = NotFoundAction.IGNORE)` của Hibernate lên các quan hệ `@ManyToOne` có khả năng bị xóa mềm. |
-| **`GenerationType.IDENTITY` vs Batch Insert** | Dùng ID tự tăng `IDENTITY` sẽ vô hiệu hóa cơ chế JDBC Batch Insert của Hibernate. | Với các tác vụ Insert dữ liệu lớn (Big Data / Import CSV), cân nhắc sử dụng `SEQUENCE` hoặc sinh ID dạng TSID / Snowflake trước khi lưu. |
-
----
-
-## 🧪 Hướng Dẫn Viết Integration Test Nhanh
+### 6.5 Viết Integration Test Nhanh (`@DataJpaTest`)
 
 Ví dụ test tính năng Xóa mềm và Restore bằng `@DataJpaTest`:
 
@@ -365,6 +489,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -382,7 +507,7 @@ class ProductRepositoryTest {
         product.setName("MacBook Pro");
         product.setPrice(2000.0);
         product = productRepository.save(product);
-        Long productId = product.getId();
+        UUID productId = product.getId();
 
         assertThat(product.getCreatedAt()).isNotNull();
 
@@ -406,30 +531,7 @@ class ProductRepositoryTest {
 
 ---
 
-## 🗄️ Tích Hợp Database Migration Với Flyway (Optional)
-
-`service-kit-data` đã khai báo sẵn dependency `flyway-core` với thẻ `<optional>true</optional>`. 
-
-Nếu service của bạn muốn áp dụng cơ chế Version Control cho database schema, chỉ cần bật Flyway trong `pom.xml` của service và tạo các file SQL migration theo quy chuẩn tại `src/main/resources/db/migration`:
-
-```
-src/main/resources/db/migration/
-├── V1__create_products_table.sql
-├── V2__add_index_products.sql
-```
-
-Ví dụ cấu hình trong `application.yml`:
-```yaml
-spring:
-  flyway:
-    enabled: true
-    baseline-on-migrate: true
-    locations: classpath:db/migration
-```
-
----
-
-## 🐳 Integration Test Với Database Thật (Testcontainers)
+### 6.6 Integration Test Với Database Thật (`Testcontainers`)
 
 Để verify chính xác 100% các tính năng nhạy cảm với SQL như `@SQLRestriction`, Partial Unique Index hoặc Native Restore trên Database thật (PostgreSQL / MySQL):
 
@@ -460,14 +562,37 @@ class ProductRepositoryTestcontainersTest {
 
 ---
 
-## 🕵️ Audit Trail — Lịch Sử Thay Đổi (Hibernate Envers)
+### 6.7 Tích Hợp Database Migration Với Flyway (Optional)
+
+`service-kit-data` đã khai báo sẵn dependency `flyway-core` với thẻ `<optional>true</optional>`. 
+
+Nếu service của bạn muốn áp dụng cơ chế Version Control cho database schema, chỉ cần bật Flyway trong `pom.xml` của service và tạo các file SQL migration theo quy chuẩn tại `src/main/resources/db/migration`:
+
+```
+src/main/resources/db/migration/
+├── V1__create_products_table.sql
+├── V2__add_index_products.sql
+```
+
+Ví dụ cấu hình trong `application.yml`:
+```yaml
+spring:
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+```
+
+---
+
+### 6.8 Audit Trail — Lịch Sử Thay Đổi (Hibernate Envers)
 
 > [!NOTE]
 > Tính năng này **optional** — chỉ kích hoạt khi service thêm dependency `hibernate-envers`. Module cung cấp sẵn `ServiceKitRevisionEntity` và `ServiceKitRevisionListener`.
 
 Hibernate Envers tự động lưu toàn bộ lịch sử thay đổi (INSERT/UPDATE/DELETE) của Entity vào bảng `*_aud`, kèm thông tin `revision_id`, `timestamp` và `modified_by`.
 
-### Cách bật
+#### Cách bật:
 
 **Bước 1:** Thêm dependency vào `pom.xml` của service:
 ```xml
@@ -498,9 +623,7 @@ public class ProductEntity extends VersionedSoftDeletableEntity {
 }
 ```
 
-> Hibernate tự động tạo bảng `products_aud` chứa mọi phiên bản thay đổi.
-
-### Truy vấn Lịch Sử
+#### Truy vấn Lịch Sử:
 
 ```java
 @Service
@@ -510,9 +633,6 @@ public class ProductAuditService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    /**
-     * Lấy toàn bộ lịch sử thay đổi của 1 sản phẩm theo ID
-     */
     public List<Object[]> getHistory(UUID productId) {
         AuditReader reader = AuditReaderFactory.get(entityManager);
         return reader.createQuery()
@@ -522,9 +642,6 @@ public class ProductAuditService {
                 .getResultList();
     }
 
-    /**
-     * Lấy trạng thái của entity tại 1 revision cụ thể
-     */
     public ProductEntity getAtRevision(UUID productId, int revisionNumber) {
         AuditReader reader = AuditReaderFactory.get(entityManager);
         return reader.find(ProductEntity.class, productId, revisionNumber);
@@ -534,7 +651,7 @@ public class ProductAuditService {
 
 ---
 
-## 🔐 Mã Hóa Cột DB (Field-Level Encryption)
+### 6.9 Mã Hóa Cột DB (Field-Level Encryption)
 
 > [!IMPORTANT]
 > Dùng cho dữ liệu PII (CCCD, số thẻ, địa chỉ...) để tuân thủ GDPR/PCI-DSS.
@@ -542,7 +659,7 @@ public class ProductAuditService {
 
 Module cung cấp sẵn [`EncryptedStringConverter`](./src/main/java/com/servicekit/data/converter/EncryptedStringConverter.java).
 
-### Cấu hình khóa bí mật
+#### Cấu hình khóa bí mật:
 
 ```bash
 # Tạo khóa 256-bit ngẫu nhiên:
@@ -551,12 +668,11 @@ openssl rand -base64 32
 ```
 
 Thiết lập khóa qua biến môi trường (KHÔNG hardcode vào code):
-```yaml
-# application.yml (chỉ reference biến môi trường)
-# Thiết lập: export SERVICE_KIT_ENCRYPTION_KEY="K7gNU3sdo+..."
+```bash
+export SERVICE_KIT_ENCRYPTION_KEY="K7gNU3sdo+OL0wNhqoVWhr3g6s1xYv72ol/pe/Unols="
 ```
 
-### Cách dùng trên Entity
+#### Cách dùng trên Entity:
 
 ```java
 import com.servicekit.data.converter.EncryptedStringConverter;
@@ -578,81 +694,14 @@ public class CustomerEntity extends VersionedSoftDeletableEntity {
 ```
 
 > [!WARNING]
-> **Hạn chế quan trọng:** Cột được mã hóa **không thể tìm kiếm trực tiếp** (`WHERE national_id = ?`) vì giá trị trong DB là ciphertext, không phải plaintext.
-> Nếu cần tìm kiếm, dùng kết hợp: lưu thêm hash (SHA-256) của giá trị vào cột riêng để index và so sánh.
+> **Hạn chế quan trọng:** Cột được mã hóa **không thể tìm kiếm trực tiếp** (`WHERE national_id = ?`) vì giá trị trong DB là ciphertext ngẫu nhiên mỗi lần mã hóa.
+> Nếu cần tìm kiếm, hãy lưu thêm hash (SHA-256) của giá trị vào cột riêng để index và so sánh.
 
 ---
 
-## ⚠️ Lưu Ý Thực Tế (Edge Cases & Gotchas)
+### 6.10 Observability & Monitoring
 
-### #1 — Soft Delete Cascade Không Tự Động
-
-> [!WARNING]
-> **`@OneToMany` + Soft Delete KHÔNG tự cascade!**
-> Khi gọi `orderRepository.deleteById(orderId)`, `OrderEntity` bị `is_deleted = true`, **nhưng các `OrderItemEntity` con không bị xóa theo**.
-
-```java
-// ✅ Phải tự xử lý cascade trong Service:
-@Transactional
-public void deleteOrder(UUID orderId) {
-    orderRepository.deleteById(orderId);                    // Soft-delete cha
-    orderItemRepository.softDeleteAllByOrderId(orderId);    // Thủ công cascade con
-}
-```
-
----
-
-### #2 — `@SQLRestriction` Không Áp Dụng Với Native Query
-
-> [!WARNING]
-> **`@SQLRestriction("is_deleted = false")` KHÔNG có hiệu lực với:**
-> - `entityManager.createNativeQuery("SELECT * FROM products")`
-> - `JdbcTemplate`
-> - Flyway Migration scripts
->
-> Dev viết Native SQL **phải tự thêm `WHERE is_deleted = false`**.
-
-```java
-// ❌ Sai — trả về cả record đã xóa mềm:
-entityManager.createNativeQuery("SELECT * FROM products WHERE price > 100")
-
-// ✅ Đúng:
-entityManager.createNativeQuery("SELECT * FROM products WHERE price > 100 AND is_deleted = false")
-```
-
----
-
-### #3 — Unique Constraint + Soft Delete
-
-**Vấn đề:** Nếu có cột Unique (ví dụ `email`), khi xóa mềm một bản ghi, người dùng mới đăng ký lại cùng email đó sẽ bị lỗi `Duplicate entry`.
-
-**Giải pháp — Partial Unique Index (PostgreSQL):**
-```sql
--- Chỉ enforce unique cho các record CHƯA bị xóa mềm:
-CREATE UNIQUE INDEX idx_users_email_active
-    ON users (email)
-    WHERE is_deleted = false;
-```
-
----
-
-### #4 — Lazy Loading Với Entity Đã Soft Deleted
-
-**Vấn đề:** Entity A có `@ManyToOne` tới Entity B (B đã bị xóa mềm). Khi gọi `a.getB().getName()`, Hibernate sẽ ném `EntityNotFoundException`.
-
-**Giải pháp:**
-```java
-@ManyToOne(fetch = FetchType.LAZY)
-@JoinColumn(name = "category_id")
-@NotFound(action = NotFoundAction.IGNORE) // Trả về null thay vì throw exception
-private CategoryEntity category;
-```
-
----
-
-## 📊 Observability — Debug & Monitoring
-
-### P6Spy — Debug SQL & Phát Hiện N+1 Query (Chỉ Dev)
+#### P6Spy — Debug SQL & Phát Hiện N+1 Query (Chỉ Dev)
 
 Thêm vào `pom.xml` của service cần debug (**KHÔNG dùng production**):
 ```xml
@@ -666,7 +715,7 @@ Thêm vào `pom.xml` của service cần debug (**KHÔNG dùng production**):
 
 P6Spy tự động log toàn bộ SQL kèm thời gian thực thi — giúp detect N+1 và slow query ngay ở local.
 
-### Micrometer — HikariCP Pool Metrics (Production)
+#### Micrometer — HikariCP Pool Metrics (Production)
 
 Bật trong `application.yml` (cần `spring-boot-starter-actuator`):
 ```yaml
