@@ -11,6 +11,7 @@ Ghi chú nội bộ cho quá trình xây dựng bộ thư viện `service-kit`.
 | `service-kit-dependencies` | ✅ Done | BOM quản lý version |
 | `service-kit-common` | ✅ Done | Exception, Response, Filter, TimeUtils, Validation |
 | `service-kit-data` | ✅ Done | Entity Hierarchy (UUID), Soft Delete, BaseRepository, HikariCP, Envers, Encryption |
+| `service-kit-web` | ✅ Done | WebExceptionHandler (HTTP 400/404/405/409/413), PaginationGuard (chống DB overload) |
 | `service-kit-security` | 🔲 Skeleton | Cần triển khai JwtFilter, TokenProvider, SecurityAutoConfig |
 | `service-kit-multitenant` | 🔲 Skeleton | Cần triển khai TenantFilter, MultiTenantAutoConfig |
 
@@ -21,7 +22,6 @@ Ghi chú nội bộ cho quá trình xây dựng bộ thư viện `service-kit`.
 | Module | Mục đích | Cần làm / Chức năng chính |
 |---|---|---|
 | `service-kit-outbox` | Giải quyết Dual-Write Problem khi ghi DB & publish event | `OutboxEvent` Entity (kế thừa `BaseEntity`), Polling Scheduler, Retry mechanism, Debezium CDC |
-| `service-kit-web` | Xử lý HTTP layer (những tính năng cần `spring-web`) | `GlobalWebExceptionHandler` (Map OptimisticLock → HTTP 409), `IdempotencyFilter` |
 | `service-kit-redis` | Tầng Cache & Distributed Lock (Gộp chung) | Base Cache Service (get/set TTL, JSON Serializer), RedisAutoConfig, `@DistributedLock` (Redisson), Idempotency key |
 | `service-kit-eventbus` | Giao tiếp Event Driven (Gộp chung) | Chứa `IEventBus`, `DomainEvent` nội bộ, và marker interfaces. Tự động quét đăng ký Listener. Hỗ trợ Kafka/RabbitMQ tùy chọn |
 | `service-kit-spring-boot-starter`| Tầng Đóng gói "All-in-one" tiện lợi nhất | File cấu hình `auto-configuration` để tự động móc nối toàn bộ hệ sinh thái khi import |

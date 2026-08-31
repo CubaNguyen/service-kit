@@ -51,6 +51,29 @@
             <optional>true</optional>
         </dependency>
 
+        <!-- Feign Core: cần để compile FeignAuthInterceptor.
+             Đánh dấu optional: chỉ kích hoạt khi service sử dụng tự dùng OpenFeign -->
+        <dependency>
+            <groupId>io.github.openfeign</groupId>
+            <artifactId>feign-core</artifactId>
+            <version>13.5</version>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Redis Starter: cần để compile RedisRevocationStore.
+             Đánh dấu optional: chỉ kích hoạt khi service sử dụng tự import starter-redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Spring AOP -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

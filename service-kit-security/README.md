@@ -1,207 +1,288 @@
-# Service Kit Security
+# Service Kit — Security Module 🔐
 
-`service-kit-security` là module quản lý **Bảo mật, Xác thực (Authentication), Phân quyền (Authorization) và Ngữ cảnh Người dùng (User/Auth Context)** dành cho hệ sinh thái Microservices xây dựng bằng **Spring Boot 3.4.x** và **Spring Security 6.x**.
-
----
-
-## 🎯 Tổng Quan Mục Đích & Roadmap Triển Khai
-
-Module này được thiết kế để giải quyết bài toán:
-1. **Xác thực Token tập trung**: Hỗ trợ parse JWT (JSON Web Token) hoặc Paseto Token từ header `Authorization: Bearer <token>`.
-2. **Bóc tách User Context tự động**: Trích xuất `UserId`, `Email`, `Role`, `Permissions`, `Tenant/SiteKey`, `Client IP`, `User-Agent`, `Platform` và nạp vào `AuthContextHolder` (ThreadLocal).
-3. **Phân quyền linh hoạt**: Tích hợp với `@PreAuthorize("hasRole('ADMIN')")` hoặc `@PreAuthorize("hasAuthority('ORDER_READ')")`.
-4. **Tích hợp JPA Auditing**: Cung cấp `SpringSecurityAuditorAware` để tự động gán `createdBy` / `updatedBy` vào Database Entity mà không cần dev phải set tay.
-5. **Đẩy thông tin Log (SLF4J MDC)**: Tự động nhúng `userId`, `email`, `ipAddress` vào log pattern để tracking thao tác của người dùng.
+Module `service-kit-security` cung cấp bộ giải pháp bảo mật và quản lý ngữ cảnh người dùng (**Authentication & Authorization**) dạng không trạng thái (stateless) linh hoạt. Thư viện được thiết kế theo mô hình trừu tượng hóa phương thức cung cấp Token (Token Provider Strategy) cho phép dễ dàng mở rộng và hỗ trợ nhiều định dạng token khác nhau (như **JWT**, **PASETO**, hoặc các loại Opaque Token khác), trong đó mặc định tích hợp sẵn cấu hình JWT ký số bất đối xứng (RS256).
 
 ---
 
-## 🏗️ Cấu Trúc Thư Mục Đề Xuất (Architecture Blueprint)
+## 📑 Mục Lục (Table of Contents)
+- [📌 1. Tổng Quan & Cài Đặt](#-1-tổng-quan--cài-đặt)
+  - [Chế độ Hoạt Động (Auth Mode)](#chế-độ-hoạt-động-auth-mode)
+  - [Cài Đặt (Installation)](#cài-đặt-installation)
+- [👤 2. Ngữ Cảnh Người Dùng (AuthContext)](#-2-ngữ-cảnh-người-dùng-authcontext)
+  - [Cấu trúc AuthContext](#cấu-trúc-authcontext)
+  - [Nguồn gốc của Roles & Permissions](#nguồn-gốc-của-roles--permissions)
+- [⚙️ 3. Cấu Hình Hệ Thống (Configuration)](#️-3-cấu-hình-hệ-thống-configuration)
+  - [Bảng tham số cấu hình](#bảng-tham-số-cấu-hình)
+- [🛡️ 4. HTTP Security Filters](#️-4-http-security-filters)
+  - [TokenAuthenticationFilter & Chống rò rỉ bộ nhớ](#tokenauthenticationfilter--chống-rò-rỉ-bộ-nhớ)
+  - [SecurityHeadersFilter (HTTP Security Headers)](#securityheadersfilter-http-security-headers)
+- [🎟️ 5. Token Revocation Store — Cơ Chế Thu Hồi 2 Lớp](#️-5-token-revocation-store--cơ-chế-thu-hồi-2-lớp)
+  - [Cơ chế check thu hồi](#cơ-chế-check-thu-hồi)
+  - [Các loại Revocation Store hỗ trợ](#các-loại-revocation-store-hỗ-trợ)
+- [💎 6. TokenClaimsCustomizer — Tùy Biến Claims Token](#-6-tokenclaimscustomizer--tùy-biến-claims-token)
+- [🏷️ 7. Phân Quyền Bằng Annotation (AOP)](#️-7-phân-quyền-bằng-annotation-aop)
+  - [Vai trò hệ thống vs Quyền hạn chi tiết](#vai-trò-hệ-thống-vs-quyền-hạn-chi-tiết)
+  - [@RequireRole & @RequirePermission](#requirerole--requirepermission)
+- [📡 8. Lan Truyền Ngữ Cảnh (Context Propagation)](#-8-lan-truyền-ngữ-cảnh-context-propagation)
+  - [Feign Client Token Propagation](#feign-client-token-propagation)
+  - [Async Execution (@Async Context Copying)](#async-execution-async-context-copying)
 
+---
+
+## 📌 1. Tổng Quan & Cài Đặt
+
+### Chế độ Hoạt Động (Auth Mode)
+
+Hỗ trợ 2 chế độ hoạt động chính giúp tối ưu hóa bảo mật và tài nguyên hệ thống:
+
+1. **`FULL`**:
+   - Dành cho các **Identity Service** (Auth Service, Gateway).
+   - Có quyền ký và phát sinh token mới (Yêu cầu cả **RSA Private Key** để ký và **RSA Public Key** để kiểm tra).
+2. **`VERIFY_ONLY`**:
+   - Dành cho các **Downstream API Service**.
+   - Chỉ có quyền giải mã và kiểm chứng token (Chỉ yêu cầu **RSA Public Key**, không được giữ Private Key).
+   - Mọi nỗ lực gọi phát sinh token (`generateToken`) ở chế độ này sẽ ném ra `UnsupportedOperationException`.
+
+### Cài Đặt (Installation)
+
+Thêm dependency vào `pom.xml` của service:
+
+```xml
+<dependency>
+    <groupId>com.servicekit</groupId>
+    <artifactId>service-kit-security</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+</dependency>
 ```
-service-kit-security/
-├── src/main/java/com/servicekit/security/
-│   ├── config/
-│   │   ├── SecurityAutoConfiguration.java   # Cấu hình SecurityFilterChain mặc định (Stateless, CSRF Disable, CORS)
-│   │   └── SecurityProperties.java          # @ConfigurationProperties("service-kit.security") (public-endpoints, secret-key...)
-│   ├── context/
-│   │   ├── AuthContext.java                 # DTO chứa toàn bộ metadata của phiên đăng nhập
-│   │   └── AuthContextHolder.java           # ThreadLocal wrapper quản lý AuthContext xuyên suốt request
-│   ├── filter/
-│   │   └── JwtAuthenticationFilter.java     # Filter bóc tách Bearer Token, nạp Authentication & AuthContext
-│   ├── auditor/
-│   │   └── SpringSecurityAuditorAware.java  # Implement AuditorAware<String> lấy UserId từ AuthContext
-│   ├── token/
-│   │   ├── TokenProvider.java               # Interface giải mã token (JWT / Paseto)
-│   │   └── JwtTokenProvider.java            # Triển khai giải mã JWT bằng Nimbus / JJWT
-│   └── util/
-│       └── SecurityUtils.java               # Helper lấy currentUserId(), hasRole(), isAuthenticated()...
-└── README.md
-```
 
 ---
 
-## 🚀 Hướng Dẫn Thiết Kế & Triển Khai Chi Tiết (Step-by-Step Guide)
+## 👤 2. Ngữ Cảnh Người Dùng (AuthContext)
 
-### 1. `AuthContext` & `AuthContextHolder` (Đã khởi tạo sẵn khung)
-- **`AuthContext`**: Chứa toàn bộ thông tin người dùng được giải mã từ Token và Request Header.
-- **`AuthContextHolder`**: Quản lý `ThreadLocal<AuthContext>` an toàn, có phương thức `clear()` để dọn dẹp trong `finally` tránh rò rỉ Thread Pool.
+### Cấu trúc AuthContext
+
+Khi xác thực thành công, toàn bộ thông tin của user được lưu trữ trong ThreadLocal qua lớp `AuthContextHolder`. Đối tượng `AuthContext` có cấu trúc cụ thể như sau:
 
 ```java
-// Cách sử dụng ở bất kỳ tầng nào (Service, Controller, Component):
-String currentUserId = AuthContextHolder.getUserId();
-String currentUserEmail = AuthContextHolder.getEmail();
-AuthContext context = AuthContextHolder.getContext();
+public record AuthContext(
+        UUID userId,           // ID duy nhất của người dùng
+        String tenantId,       // ID của Tenant (nullable - tự động gán nếu dùng Multi-Tenant)
+        Set<String> roles,     // Danh sách vai trò (ví dụ: USER, ADMIN, SYSTEM_ADMIN)
+        Set<String> permissions,// Danh sách quyền hạn chi tiết (ví dụ: product:write)
+        String jti,            // JWT ID (ID duy nhất của Token hiện tại, bắt buộc cho revocation)
+        Instant issuedAt       // Mốc thời gian phát hành token (bắt buộc cho global cutoff check)
+) {}
+```
+
+Bạn có thể dễ dàng lấy thông tin user hiện tại ở bất kỳ đâu trong cùng một request thread bằng cách gọi:
+```java
+AuthContext userContext = AuthContextHolder.getContext();
+UUID userId = userContext.userId();
+```
+
+### Nguồn gốc của Roles & Permissions
+
+> [!NOTE]
+> Để đảm bảo tính **Stateless (không trạng thái)** và tối ưu hiệu năng (không cần truy cập Database ở mỗi request để kiểm tra quyền), cả **Roles** và **Permissions** đều được **nhúng trực tiếp vào token claims** (`roles` và `permissions` claims) trong quá trình phát sinh token ở Auth/Identity Service. Khi gọi API, downstream service chỉ việc giải mã token và đọc trực tiếp các quyền từ token này.
+
+---
+
+## ⚙️ 3. Cấu Hình Hệ Thống (Configuration)
+
+### Bảng tham số cấu hình
+
+Khai báo các tham số sau trong `application.yml`:
+
+```yaml
+service-kit:
+  security:
+    auth-mode: VERIFY_ONLY            # FULL | VERIFY_ONLY (Mặc định: VERIFY_ONLY)
+    token-type: JWT                   # JWT | PASETO (PASETO hiện tại thuộc Roadmap và chưa được kích hoạt)
+    revocation-store: NONE            # NONE | IN_MEMORY | REDIS (Mặc định: NONE)
+    jwt:
+      public-key-path: classpath:keys/public.pem   # Bắt buộc cho cả 2 mode (khi token-type=JWT)
+      private-key-path: classpath:keys/private.pem # Chỉ bắt buộc khi chạy FULL mode (khi token-type=JWT)
+      algorithm: RS256                             # Thuật toán mã hóa (Mặc định: RS256)
+      expiration-seconds: 3600                     # TTL của token (Mặc định: 3600 giây)
+    permit-all-urls:                  # Danh sách API trắng không cần token
+      - /api/v1/auth/login
+      - /api/v1/public/**
 ```
 
 ---
 
-### 2. Triển Khai `JwtAuthenticationFilter` (Mẫu tham khảo)
+## 🛡️ 4. HTTP Security Filters
 
-Filter này chặn trước mọi request, đọc header `Authorization` và các header phụ trợ:
+### TokenAuthenticationFilter & Chống rò rỉ bộ nhớ
+
+`TokenAuthenticationFilter` phụ trách trích xuất Bearer Token từ request, giải mã thông tin gán vào `AuthContextHolder` và tích hợp bối cảnh bảo mật của Spring Security.
+
+> [!WARNING]
+> Do Tomcat (và các Servlet engines) hoạt động theo cơ chế **Thread Pooling** (tái sử dụng các luồng cũ để xử lý request mới), việc quên dọn dẹp ThreadLocal sẽ làm lộ thông tin bảo mật của user trước cho request sau. 
+> `TokenAuthenticationFilter` bảo vệ ứng dụng bằng cách bắt buộc dọn dẹp context trong khối `finally`:
+> ```java
+> try {
+>     filterChain.doFilter(request, response);
+> } finally {
+>     AuthContextHolder.clearContext(); // Bảo đảm xóa sạch ThreadLocal
+> }
+> ```
+
+### SecurityHeadersFilter (HTTP Security Headers)
+
+`SecurityHeadersFilter` tự động tiêm các HTTP Header bảo mật tiêu chuẩn vào mọi Response của hệ thống nhằm giảm thiểu các nguy cơ tấn công Web cơ bản:
+
+- **`X-Frame-Options: DENY`**: Chống clickjacking.
+- **`X-Content-Type-Options: nosniff`**: Chặn MIME-sniffing.
+- **`X-XSS-Protection: 1; mode=block`**: Kích hoạt bộ lọc XSS của trình duyệt.
+- **`Strict-Transport-Security` (HSTS)**: Ép buộc kết nối HTTPS.
+- **`Content-Security-Policy` (CSP)**: Định nghĩa tài nguyên an toàn (`default-src 'self'`).
+
+---
+
+## 🎟️ 5. Token Revocation Store — Cơ Chế Thu Hồi 2 Lớp
+
+### Cơ chế check thu hồi
+
+Khi kiểm tra một request đi vào qua `TokenAuthenticationFilter`, hệ thống thực thi kiểm tra thu hồi qua **2 lớp bảo vệ**:
+
+1. **Lớp 1 — Hủy thiết bị/phiên cụ thể (Blacklist `jti`)**:
+   - Sử dụng JWT ID (`jti`) duy nhất của token. Khi user bấm đăng xuất trên thiết bị hiện tại, `jti` của token đó sẽ bị đẩy vào blacklist của store với TTL bằng thời gian sống còn lại của token.
+2. **Lớp 2 — Hủy toàn bộ phiên (Cutoff Timestamp)**:
+   - Khi user đổi mật khẩu hoặc bấm "đăng xuất khỏi tất cả các thiết bị", hệ thống sẽ lưu mốc thời gian hủy (`cutoff`) cho `userId` đó. Bất kỳ token nào có thời gian phát hành (`issuedAt`) trước mốc `cutoff` này sẽ lập tức bị coi là vô hiệu, bất kể `jti` của nó là gì.
 
 ```java
-package com.servicekit.security.filter;
+boolean isRevoked = revocationStore.isTokenRevoked(authContext.jti())
+        || (revocationStore.getRevokeAllCutoff(authContext.userId()) != null
+            && authContext.issuedAt().isBefore(revocationStore.getRevokeAllCutoff(authContext.userId())));
+```
 
-import com.servicekit.security.context.AuthContext;
-import com.servicekit.security.context.AuthContextHolder;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import org.slf4j.MDC;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.filter.OncePerRequestFilter;
+### Các loại Revocation Store hỗ trợ
 
-import java.io.IOException;
-import java.util.List;
+Cấu hình qua `service-kit.security.revocation-store`:
 
-@RequiredArgsConstructor
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+- **`NONE`**: Mặc định. Nạp `NoOpRevocationStore`, các lệnh check thu hồi luôn trả về `false`, tốn chi phí I/O gần như bằng 0.
+- **`IN_MEMORY`**: Nạp `InMemoryRevocationStore` sử dụng `ConcurrentHashMap` tự động dọn dẹp token hết hạn. Phù hợp cho dev/test hoặc monolith đơn instance.
+- **`REDIS`**: Nạp `RedisRevocationStore` chia sẻ trạng thái giữa các cụm microservices. **Chỉ tự động cấu hình** khi thuộc tính được set là `REDIS` và dự án chủ động khai báo `spring-boot-starter-data-redis` trên classpath.
 
+---
+
+## 💎 6. TokenClaimsCustomizer — Tùy Biến Claims Token
+
+Nếu bạn cần lưu trữ thêm các thông tin nghiệp vụ tùy biến khác bên trong token (ví dụ: `storeId`, `email`, `branchCode`), chỉ cần khai báo một Spring bean triển khai interface `TokenClaimsCustomizer`:
+
+```java
+@Component
+public class UserEmailClaimsCustomizer implements TokenClaimsCustomizer {
+    
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    public void customize(Map<String, Object> claims, AuthContext context) {
+        // Trích xuất thông tin nghiệp vụ và đưa vào claims map
+        claims.put("email", "user@company.com");
+        claims.put("storeId", 12345);
+    }
+}
+```
+`JwtTokenProvider` sẽ tự động phát hiện tất cả các Customizer trong ApplicationContext và đưa thông tin vào token trong quá trình sinh token (`generateToken`).
 
-        String authHeader = request.getHeader("Authorization");
-        
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            
-            // TODO: Giải mã token lấy claims (UserId, Email, Roles...)
-            String userId = "12345"; // Trích xuất từ Token
-            String email = "john@example.com";
-            List<String> roles = List.of("ROLE_USER");
+---
 
-            // 1. Tạo AuthContext
-            AuthContext authContext = AuthContext.builder()
-                    .userId(userId)
-                    .email(email)
-                    .roles(roles)
-                    .token(token)
-                    .ipAddress(request.getRemoteAddr())
-                    .userAgent(request.getHeader("User-Agent"))
-                    .correlationId(request.getHeader("X-Correlation-Id"))
-                    .build();
+## 🏷️ 7. Phân Quyền Bằng Annotation (AOP)
 
-            AuthContextHolder.setContext(authContext);
-            MDC.put("userId", userId);
+### Vai trò hệ thống vs Quyền hạn chi tiết
 
-            // 2. Nạp vào Spring SecurityContext
-            var authorities = roles.stream().map(SimpleGrantedAuthority::new).toList();
-            var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-        }
+Hệ thống phân biệt rõ hai khái niệm phân quyền:
+1. **Vai trò hệ thống (Roles)**: Cho biết người dùng thuộc nhóm người dùng nào (Ví dụ: `USER`, `ADMIN`, `SYSTEM_ADMIN`). Được bảo vệ thông qua `@RequireRole`.
+2. **Quyền hạn hành động (Permissions)**: Ràng buộc hành động nghiệp vụ cụ thể (Ví dụ: `product:write`, `product:read`). Được bảo vệ thông qua `@RequirePermission`.
 
-        try {
-            filterChain.doFilter(request, response);
-        } finally {
-            // [Quan trọng] Dọn dẹp bộ nhớ chống leak Thread Pool
-            AuthContextHolder.clear();
-            MDC.remove("userId");
-        }
+### @RequireRole & @RequirePermission
+
+Bạn có thể phân quyền truy cập trực tiếp trên method hoặc class của Controller/Service bằng các annotation:
+
+```java
+@RestController
+@RequestMapping("/api/v1/products")
+@RequireRole({"ADMIN", "SYSTEM_ADMIN"}) // Yêu cầu vai trò hệ thống ở mức Class
+public class ProductController {
+
+    @PostMapping
+    @RequirePermission("product:write") // Yêu cầu quyền hành động chi tiết ở mức Method
+    public ApiResponse<Void> createProduct() {
+        return ApiResponse.success(null);
     }
 }
 ```
 
+Nếu vi phạm phân quyền, Aspect sẽ tự động ném ra `ForbiddenException` (sẽ được map về HTTP 403 ở tầng Web) hoặc `UnauthorizedException` (HTTP 401) nếu chưa đăng nhập.
+
+> [!TIP]
+> **Best Practice: Sử dụng Enum/Constant để tránh lỗi chính tả (Typo)**
+> Do cấu trúc ngôn ngữ Java chỉ cho phép truyền hằng số compile-time tĩnh vào Annotation (không cho phép gọi hàm như `.name()`), lập trình viên tích hợp module này có thể xây dựng các Enum vai trò kèm theo định nghĩa `Fields` tĩnh để sử dụng an toàn (Type-safe) như sau:
+>
+> ```java
+> public enum UserRole {
+>     ADMIN(Fields.ADMIN),
+>     USER(Fields.USER);
+>
+>     private final String value;
+> 
+>     UserRole(String value) { 
+>         this.value = value; 
+>     }
+>
+>     public static class Fields {
+>         public static final String ADMIN = "ADMIN";
+>         public static final String USER = "USER";
+>     }
+> }
+> ```
+> 
+> Khi gán quyền tại Controller, chỉ cần truyền biến hằng số lớp `Fields` tĩnh:
+> ```java
+> @RequireRole(UserRole.Fields.ADMIN)
+> ```
+> Cách tiếp cận này giúp bạn vừa có Enum để lưu xuống Database (sử dụng `@Enumerated(EnumType.STRING)` của JPA), vừa đảm bảo an toàn kiểu dữ liệu compile-time khi dùng với `@RequireRole`.
+
+### Quy tắc Đối Khớp (Semantics & Matching Rules)
+
+Để tránh hiểu nhầm khi áp dụng phân quyền, hệ thống hoạt động chặt chẽ theo các quy tắc logic sau:
+
+1. **Logic `OR` đối với nhiều tham số trong cùng 1 annotation**:
+   - Khi khai báo `@RequireRole({"ADMIN", "SYSTEM_ADMIN"})` hoặc `@RequirePermission({"product:write", "product:delete"})`, người dùng chỉ cần sở hữu **ít nhất một** trong các vai trò/quyền hạn được liệt kê là có thể truy cập thành công.
+2. **Logic `AND` khi kết hợp các loại annotation khác nhau**:
+   - Khi kết hợp `@RequireRole` ở mức Class và `@RequirePermission` ở mức Method, người dùng **phải thỏa mãn đồng thời cả hai điều kiện** (phải có vai trò được yêu cầu ở Class **VÀ** có quyền hạn chi tiết yêu cầu ở Method).
+3. **Logic `Ghi Đè (Override)` khi trùng loại annotation**:
+   - Nếu `@RequireRole` (hoặc `@RequirePermission`) xuất hiện ở cả mức Class và Method, annotation ở mức **Method sẽ ghi đè hoàn toàn** annotation ở mức Class.
+   - *Ví dụ:* Class đánh dấu `@RequireRole("ADMIN")` nhưng Method bên trong đánh dấu `@RequireRole("USER")`, thì tại method đó hệ thống chỉ kiểm tra vai trò `USER` (ADMIN không có role USER sẽ bị chặn).
+
 ---
 
-### 3. Tích Hợp Tự Động Gán `createdBy` / `updatedBy` Với `service-kit-data`
+## 📡 8. Lan Truyền Ngữ Cảnh (Context Propagation)
 
-Triển khai `AuditorAware<String>`:
+### Feign Client Token Propagation
+Khi một service gọi HTTP call sang service khác qua Feign Client, `FeignAuthInterceptor` sẽ tự động trích xuất Bearer Token từ request thread hiện tại và đính kèm vào HTTP Header `Authorization` của outgoing request:
+```
+[Client] ---> Authorization: Bearer <token> ---> [Gateway]
+                                                      │ (Tự động chuyển tiếp token)
+                                                      ▼
+                                                 [Service A] ---> Authorization: Bearer <token> ---> [Service B]
+```
+
+### Async Execution (@Async Context Copying)
+Vì `AuthContextHolder` sử dụng `ThreadLocal`, bối cảnh bảo mật sẽ bị mất khi chạy các method bất đồng bộ `@Async` (do chạy trên một Thread pool khác). 
+Để giải quyết việc này, module cung cấp `AsyncContextPropagator` (triển khai `TaskDecorator`). Bạn chỉ cần cấu hình TaskExecutor để sử dụng decorator này:
 
 ```java
-package com.servicekit.security.auditor;
+@Configuration
+@EnableAsync
+public class AsyncConfig {
 
-import com.servicekit.security.context.AuthContextHolder;
-import org.springframework.data.domain.AuditorAware;
-import java.util.Optional;
-
-public class SpringSecurityAuditorAware implements AuditorAware<String> {
-
-    @Override
-    public Optional<String> getCurrentAuditor() {
-        String userId = AuthContextHolder.getUserId();
-        return Optional.ofNullable(userId != null ? userId : "SYSTEM");
+    @Bean
+    public Executor taskExecutor(AsyncContextPropagator contextPropagator) {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setTaskDecorator(contextPropagator); // Tự động copy context sang thread con
+        executor.initialize();
+        return executor;
     }
 }
 ```
-
-*Khi bật `@EnableJpaAuditing`, các Entity có `@CreatedBy private String createdBy;` sẽ tự động nhận ID của người gọi request mà không cần code thêm.*
-
----
-
-## ⚙️ Cấu Hình Mặc Định Trong `SecurityAutoConfiguration`
-
-Cung cấp cấu hình Stateless mặc định cho Microservices:
-- Tắt CSRF (`csrf.disable()`).
-- Tắt Session (`SessionCreationPolicy.STATELESS`).
-- Cho phép whitelist các endpoint public (Swagger, Actuator, Health check).
-- Chặn các request còn lại yêu cầu `authenticated()`.
-
----
-
-## 🗓️ TODO — Các Tính Năng Chưa Xây Dựng (Liên Quan Đến Security)
-
-> Xem chi tiết thiết kế và lý do phân tách module tại **[Root README — TODO Section](../README.md#️-todo--các-module-chưa-được-xây-dựng)**.
-
-### TODO: `service-kit-web` — HTTP 409 Conflict Cho OptimisticLockException
-
-**Vấn đề:** Khi Entity dùng `@Version` (Optimistic Locking) bị xung đột cập nhật đồng thời, Hibernate ném `OptimisticLockingFailureException`. Spring Boot mặc định map nó về HTTP **500** — client (mobile app, frontend) không biết đây là lỗi có thể retry được.
-
-**Tại sao KHÔNG đặt handler này ở `service-kit-security`?**
-> `service-kit-security` chỉ xử lý Authentication/Authorization. HTTP exception mapping là trách nhiệm của tầng Web, nên thuộc `service-kit-web`.
-
-```java
-// TODO: Implement trong service-kit-web / GlobalWebExceptionHandler
-@ExceptionHandler({
-    OptimisticLockingFailureException.class,
-    ObjectOptimisticLockingFailureException.class
-})
-public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(OptimisticLockingFailureException ex) {
-    // HTTP 409 Conflict — client biết cần tải lại dữ liệu và retry
-    return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(ApiResponse.error("CONFLICT",
-                "Dữ liệu vừa được cập nhật bởi người dùng khác. Vui lòng tải lại và thử lại."));
-}
-```
-
-### TODO: `service-kit-web` — Idempotency Key Filter
-
-**Vấn đề:** Client retry request khi timeout/mất mạng → Server xử lý 2 lần → Tạo duplicate record (ví dụ: tạo 2 đơn hàng cho 1 lần nhấn nút).
-
-**Giải pháp:** HTTP Filter kiểm tra header `Idempotency-Key` trước khi request đến Controller:
-
-```java
-// TODO: Implement trong service-kit-web / IdempotencyFilter
-// Request phải gửi: Idempotency-Key: <uuid>
-// Filter:
-//   1. Kiểm tra key trong Redis / DB
-//   2. Nếu đã tồn tại → trả về response cache cũ ngay lập tức (không xử lý lại)
-//   3. Nếu chưa → cho request đi tiếp, cache response sau khi xử lý xong
-```
-
-**Tại sao KHÔNG đặt ở `service-kit-security`?**
-> Idempotency là vấn đề của tầng HTTP/Application, không phải Auth. Logic kiểm tra key có thể dùng Redis (→ `service-kit-redis`) hoặc DB table (entity ở `service-kit-data`).

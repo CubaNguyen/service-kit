@@ -50,6 +50,11 @@
                 <artifactId>service-kit-multitenant</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.servicekit</groupId>
+                <artifactId>service-kit-web</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 </project>
